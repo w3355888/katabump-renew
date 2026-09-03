@@ -443,6 +443,39 @@ def login(sb, email, password) -> bool:
         print(f"✅ 登录成功！(URL: {sb.get_current_url()}, Title: {page_title})")
         return True
     print(f"❌ 登录失败，页面未跳转到账户页。(URL: {sb.get_current_url()}, Title: {page_title})")
+    try:
+        diag = sb.execute_script("""
+        (function(){
+            var out = {};
+            var t = document.querySelector('input[name="cf-turnstile-response"]');
+            out.turnstile_token_len = t ? (t.value || '').length : -1;
+            out.turnstile_token_head = t ? (t.value || '').slice(0, 24) : '';
+            var al = [];
+            document.querySelectorAll('div.alert, [role="alert"], .invalid-feedback, .text-danger').forEach(function(e){
+                var s = (e.innerText || e.textContent || '').trim();
+                if (s) al.push(s.slice(0, 200));
+            });
+            out.alerts = al;
+            var ins = [];
+            document.querySelectorAll('form input').forEach(function(i){
+                ins.push({name: i.name || '', type: i.type || '', val_len: (i.value || '').length});
+            });
+            out.inputs = ins;
+            var fr = [];
+            document.querySelectorAll('iframe').forEach(function(f){
+                fr.push({src: (f.src || '').slice(0, 90), w: f.clientWidth, h: f.clientHeight});
+            });
+            out.iframes = fr;
+            out.has_altcha = !!document.querySelector('altcha-widget');
+            out.has_hcaptcha = !!document.querySelector('.h-captcha, iframe[src*="hcaptcha"]');
+            out.has_recaptcha = !!document.querySelector('.g-recaptcha, iframe[src*="recaptcha"]');
+            out.body_head = (document.body ? document.body.innerText : '').slice(0, 400);
+            return JSON.stringify(out, null, 1);
+        })()
+        """)
+        print("🔍 登录失败诊断:\n" + str(diag))
+    except Exception as e:
+        print(f"⚠️ 诊断脚本异常: {e}")
     sb.save_screenshot("login_failed.png")
     return False
 
