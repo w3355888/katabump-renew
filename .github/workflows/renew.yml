@@ -2,8 +2,12 @@ name: Katabump Auto Renew
 
 on:
   schedule:
-    # 每天 UTC 0 点（北京时间 8 点）
-    - cron: "0 0 * * *"
+    # UTC 01:17 = 北京时间 09:17
+    # 注意1：必须用 UTC，GitHub cron 不认时区
+    # 注意2：刻意避开整点。GitHub 在 :00 会大量排队，延迟几十分钟甚至直接跳过
+    # 注意3：必须每天跑，不能设成每4天。官方规则是"到期前2天内(含到期日)才可续期"，
+    #        4天周期+2天窗口，固定4天跑一次必然滑出窗口。脚本自己会判断，未进窗口就跳过
+    - cron: "17 1 * * *"
   workflow_dispatch:
 
 permissions:
