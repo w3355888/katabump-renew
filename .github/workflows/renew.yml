@@ -79,6 +79,10 @@ jobs:
           IS_PROXY: ${{ secrets.PROXY_URL != '' && 'true' || 'false' }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          # 每个账号的最大节点重试次数。没配 PROXY_URL 时，重试 3 次走的都是同一个 IP，
+          # 结果完全一样，只是白白多出 3 倍失败登录记录（有触发风控锁号的风险）。
+          # 将来配了多节点代理再调回 3，让它在节点间切换重试才有意义。
+          NODE_ATTEMPTS: "1"
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python3 main.py
 
       - name: Upload Artifacts
