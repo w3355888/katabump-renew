@@ -428,8 +428,32 @@ def login(sb, email, password) -> bool:
             return False
     else:
         print("ℹ️ 未检测到 Turnstile")
-    print("🖱️ 敲击回车提交表单...")
-    sb.press_keys('input[name="password"]', '\n')
+    pre = sb.execute_script("""
+    (function(){
+        var g = function(sel){ var e = document.querySelector(sel); return e ? (e.value || '').length : -1; };
+        return JSON.stringify({
+            email_len: g('input[name=email]'),
+            password_len: g('input[name=password]'),
+            turnstile_len: g('input[name=cf-turnstile-response]')
+        });
+    })()
+    """)
+    print(f"🧪 提交前字段检查(只打印长度): {pre}")
+    clicked = sb.execute_script("""
+    (function(){
+        var f = document.querySelector('form#login-form') || document.querySelector('form');
+        if (!f) return 'no-form';
+        var btn = f.querySelector('button[type=submit]') || f.querySelector('button');
+        if (!btn) return 'no-btn';
+        btn.click();
+        return 'clicked: ' + (btn.textContent || '').trim().slice(0, 24);
+    })()
+    """)
+    print(f"🖱️ 点击登录按钮提交: {clicked}")
+    time.sleep(2)
+    if sb.get_current_url().split('?')[0].lower().startswith(f"{BASE_URL}/auth/login"):
+        print("   ↩ 点击未跳转，回退到回车提交...")
+        sb.press_keys('input[name="password"]', '\n')
     print("⏳ 等待登录跳转...")
     for _ in range(12):
         time.sleep(1)
