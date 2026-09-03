@@ -479,6 +479,58 @@ def login(sb, email, password) -> bool:
     sb.save_screenshot("login_failed.png")
     return False
 
+def _probe_forgot(sb, email) -> bool:
+    """零副作用探测：只向找回密码页提交邮箱，看服务端认不认这个邮箱。
+    不计入登录失败次数，也不会创建账号。用于区分"密码错"和"邮箱压根没注册"。"""
+    print("\n🔎 探测模式：验证邮箱是否已注册（不登录、不计失败）")
+    try:
+        sb.open(f"{BASE_URL}/auth/forgot")
+        time.sleep(6)
+        print(f"📄 打开页面: {sb.get_current_url()}")
+        try:
+            js_fill_input(sb, 'input[name="email"]', email)
+            print(f"📧 已填写邮箱: {email}")
+        except Exception as e:
+            print(f"⚠️ 填写邮箱失败: {e}")
+        time.sleep(1)
+        try:
+            handle_turnstile(sb)
+        except Exception as e:
+            print(f"⚠️ turnstile 处理异常: {e}")
+        try:
+            sb.execute_script("""
+            (function(){
+                var f = document.querySelector('form');
+                if (!f) return 'no-form';
+                var btn = f.querySelector('button[type=submit]') || f.querySelector('button');
+                if (btn) { btn.click(); return 'clicked'; }
+                f.submit(); return 'submitted';
+            })()
+            """)
+        except Exception as e:
+            print(f"⚠️ 提交异常: {e}")
+        time.sleep(8)
+        print(f"📄 提交后页面: {sb.get_current_url()}")
+        info = sb.execute_script("""
+        (function(){
+            var out = {};
+            var al = [];
+            document.querySelectorAll('div.alert, [role="alert"], .text-danger, .invalid-feedback').forEach(function(e){
+                var s = (e.innerText || e.textContent || '').trim();
+                if (s) al.push(s.slice(0, 300));
+            });
+            out.alerts = al;
+            out.body = (document.body ? document.body.innerText : '').slice(0, 600);
+            return JSON.stringify(out, null, 1);
+        })()
+        """)
+        print("🔍 找回密码页返回:\n" + str(info))
+        sb.save_screenshot("probe_forgot.png")
+        return True
+    except Exception as e:
+        print(f"❌ 探测异常: {e}")
+        return False
+
 def _read_alert(sb):
     try:
         el = sb.find_element("div.alert", timeout=4)
@@ -630,6 +682,9 @@ def _run_account(sb_kwargs, email, pwd) -> bool:
                 print(f"📍  当前出口IP: {sb.get_text('body')}")
             except Exception:
                 pass
+            if os.environ.get("PROBE_FORGOT") == "1":
+                _probe_forgot(sb, email)
+                return True
             if login(sb, email, pwd):
                 renew_server(sb)
                 return True
