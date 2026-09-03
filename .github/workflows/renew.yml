@@ -9,6 +9,10 @@ on:
     #        4天周期+2天窗口，固定4天跑一次必然滑出窗口。脚本自己会判断，未进窗口就跳过
     - cron: "17 1 * * *"
   workflow_dispatch:
+    inputs:
+      probe:
+        description: "填 1 = 只做邮箱存在性探测（不登录、不计失败）；留空 = 正常续期"
+        default: "0"
 
 permissions:
   contents: read
@@ -83,6 +87,7 @@ jobs:
           # 结果完全一样，只是白白多出 3 倍失败登录记录（有触发风控锁号的风险）。
           # 将来配了多节点代理再调回 3，让它在节点间切换重试才有意义。
           NODE_ATTEMPTS: "1"
+          PROBE_FORGOT: ${{ github.event.inputs.probe || '0' }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python3 main.py
 
       - name: Upload Artifacts
